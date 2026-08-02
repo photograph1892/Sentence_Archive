@@ -3767,6 +3767,9 @@ function renderCollectorSpread() {
   const leftCopy = leftCollectorPage.querySelector(".collector-copy");
   const rightCopy = rightCollectorPage.querySelector(".collector-copy");
 
+  leftCollectorPage.classList.add("is-spread-rendering");
+  rightCollectorPage.classList.add("is-spread-rendering");
+
   leftCollectorPage.classList.remove("is-content-editing");
   rightCollectorPage.classList.remove("is-content-editing");
   leftAuthor.value = spread.left?.author || "";
@@ -3788,6 +3791,8 @@ function renderCollectorSpread() {
   }
   leftCopy.scrollTop = 0;
   rightCopy.scrollTop = 0;
+  updateCopyFade(leftCopy);
+  updateCopyFade(rightCopy);
 
   isLeftPageSaved = Boolean(spread.left);
   isRightPageSaved = Boolean(spread.right);
@@ -3814,6 +3819,10 @@ function renderCollectorSpread() {
     resizeAuthorInput(rightAuthor);
     updateCopyFade(leftCopy);
     updateCopyFade(rightCopy);
+    requestAnimationFrame(() => {
+      leftCollectorPage.classList.remove("is-spread-rendering");
+      rightCollectorPage.classList.remove("is-spread-rendering");
+    });
   });
 }
 

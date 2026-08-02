@@ -1644,6 +1644,10 @@ body:not(.drawer-open):not(.collect-open) .date-dot.hover-glyph:hover {
   opacity: 1;
 }
 
+.collector-page.is-spread-rendering::after {
+  transition: none;
+}
+
 .collector-author {
   position: relative;
   z-index: 5;
