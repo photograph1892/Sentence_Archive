@@ -3745,8 +3745,17 @@ document.fonts?.ready.then(() => {
   document
     .querySelectorAll(".sentence-card")
     .forEach(updateDrawerCardOverflow);
+  collectorStorageReady.then(() => {
+    if (
+      !document.body.classList.contains("drawer-open") &&
+      !document.body.classList.contains("collect-open")
+    ) {
+      showRandomCollectedSentence();
+    }
+  });
 });
 
+let mainSentenceResizeTimer = null;
 window.addEventListener("resize", () => {
   fitMainSentenceLines();
   updateMainAuthorOverflow();
@@ -3764,6 +3773,15 @@ window.addEventListener("resize", () => {
       .querySelectorAll(".sentence-card")
       .forEach(updateDrawerCardOverflow);
   }
+  window.clearTimeout(mainSentenceResizeTimer);
+  mainSentenceResizeTimer = window.setTimeout(() => {
+    if (
+      !document.body.classList.contains("drawer-open") &&
+      !document.body.classList.contains("collect-open")
+    ) {
+      showRandomCollectedSentence();
+    }
+  }, 120);
 });
 
 document.querySelectorAll(".collector-copy").forEach((copy) => {
