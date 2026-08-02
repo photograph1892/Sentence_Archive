@@ -2998,18 +2998,37 @@ function insertPlainTextAtCaret(copy, text) {
   }
 }
 
-function removePastedAlignment(copy) {
-  copy.querySelectorAll("[align], [dir], [style]").forEach((element) => {
-    element.removeAttribute("align");
-    element.removeAttribute("dir");
-    if (element.hasAttribute("style")) {
-      element.style.removeProperty("text-align");
-      element.style.removeProperty("direction");
-      if (!element.getAttribute("style")?.trim()) {
-        element.removeAttribute("style");
+function removePastedFormatting(copy) {
+  const typographyProperties = [
+    "font",
+    "font-family",
+    "font-size",
+    "font-style",
+    "font-weight",
+    "line-height",
+    "letter-spacing",
+    "color",
+    "text-align",
+    "direction",
+  ];
+
+  copy
+    .querySelectorAll("[align], [dir], [face], [size], [color], [style]")
+    .forEach((element) => {
+      element.removeAttribute("align");
+      element.removeAttribute("dir");
+      element.removeAttribute("face");
+      element.removeAttribute("size");
+      element.removeAttribute("color");
+      if (element.hasAttribute("style")) {
+        typographyProperties.forEach((property) =>
+          element.style.removeProperty(property),
+        );
+        if (!element.getAttribute("style")?.trim()) {
+          element.removeAttribute("style");
+        }
       }
-    }
-  });
+    });
 }
 
 document.querySelectorAll(".collector-copy").forEach((copy) => {
@@ -3021,7 +3040,7 @@ document.querySelectorAll(".collector-copy").forEach((copy) => {
     event.preventDefault();
     beginPageContentEditing(copy.closest(".collector-page"), true);
     insertPlainTextAtCaret(copy, plainText);
-    removePastedAlignment(copy);
+    removePastedFormatting(copy);
     copy.dispatchEvent(new Event("input", { bubbles: true }));
   });
 

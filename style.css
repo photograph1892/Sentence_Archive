@@ -1740,6 +1740,16 @@ body:not(.drawer-open):not(.collect-open) .date-dot.hover-glyph:hover {
   scrollbar-width: none;
 }
 
+.collector-copy * {
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-style: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  line-height: inherit !important;
+}
+
 .collector-copy::-webkit-scrollbar {
   display: none;
 }
