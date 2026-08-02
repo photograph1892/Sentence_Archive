@@ -1796,10 +1796,25 @@ function highlightedRepresentativeLines(html) {
 
   container.childNodes.forEach((node) => readNode(node));
 
-  return lines
+  const logicalLines = lines
     .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean);
+  const highlightedSegments = Array.from(
+    container.querySelectorAll('[style*="background-color"]'),
+  )
+    .filter(isActiveHighlightElement)
+    .map((element) => element.textContent.trim())
+    .filter(Boolean);
+
+  // contenteditable이 서로 다른 하이라이트 영역을 같은 HTML 문단 안에
+  // 저장하는 경우, 문단 기준 추출 결과보다 실제 하이라이트 영역 수가
+  // 많습니다. 이때에는 사용자가 선택한 개별 영역을 대표 문장으로 씁니다.
+  const representativeLines =
+    highlightedSegments.length > logicalLines.length
+      ? highlightedSegments
+      : logicalLines;
+
+  return representativeLines.slice(0, 3);
 }
 
 function getDrawerEntries() {
