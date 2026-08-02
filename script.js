@@ -1761,152 +1761,13 @@ function highlightedRepresentativeLines(html) {
 
   const container = document.createElement("div");
   container.innerHTML = html;
-  const lines = [""];
-  const newLine = () => {
-    if (lines[lines.length - 1] !== "") lines.push("");
-  };
-
-  const readNode = (node, inheritedHighlight = false) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (inheritedHighlight) {
-        lines[lines.length - 1] += node.textContent;
-      }
-      return;
-    }
-
-    if (node.nodeName === "BR") {
-      newLine();
-      return;
-    }
-
-    const isBlock = /^(DIV|P|LI)$/.test(node.nodeName);
-    if (isBlock) newLine();
-
-    let highlighted = inheritedHighlight;
-    if (node.style?.backgroundColor) {
-      highlighted = isActiveHighlightElement(node);
-    }
-
-    node.childNodes.forEach((child) => {
-      readNode(child, highlighted);
-    });
-
-    if (isBlock) newLine();
-  };
-
-  container.childNodes.forEach((node) => readNode(node));
-
-  const logicalLines = lines
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const highlightedSegments = Array.from(
+  return Array.from(
     container.querySelectorAll('[style*="background-color"]'),
   )
     .filter(isActiveHighlightElement)
     .map((element) => element.textContent.trim())
-    .filter(Boolean);
-
-  // contenteditable이 서로 다른 하이라이트 영역을 같은 HTML 문단 안에
-  // 저장하는 경우, 문단 기준 추출 결과보다 실제 하이라이트 영역 수가
-  // 많습니다. 이때에는 사용자가 선택한 개별 영역을 대표 문장으로 씁니다.
-  const representativeLines =
-    highlightedSegments.length > logicalLines.length
-      ? highlightedSegments
-      : logicalLines;
-
-  return representativeLines.slice(0, 3);
-}
-
-function visualHighlightedLines(copy) {
-  if (!copy?.isConnected) return [];
-
-  const rows = [];
-  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-  let textNode = walker.nextNode();
-
-  while (textNode) {
-    if (textNode.data && closestActiveHighlight(textNode)) {
-      for (let offset = 0; offset < textNode.data.length; offset += 1) {
-        const character = textNode.data[offset];
-        const range = document.createRange();
-        range.setStart(textNode, offset);
-        range.setEnd(textNode, offset + 1);
-        const rect = Array.from(range.getClientRects()).find(
-          (candidate) => candidate.width || candidate.height,
-        );
-        if (!rect) continue;
-
-        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
-        if (!row) {
-          row = { top: rect.top, left: rect.left, text: "" };
-          rows.push(row);
-        }
-        row.left = Math.min(row.left, rect.left);
-        row.text += character;
-      }
-    }
-    textNode = walker.nextNode();
-  }
-
-  return rows
-    .sort((a, b) => a.top - b.top || a.left - b.left)
-    .map((row) => row.text.trim())
     .filter(Boolean)
     .slice(0, 3);
-}
-
-function measureStoredVisualHighlightedLines(html, side = "left") {
-  if (!html) return [];
-
-  const page = document.createElement("div");
-  page.className = `collector-page collector-page-${side}`;
-  page.setAttribute("aria-hidden", "true");
-  Object.assign(page.style, {
-    position: "fixed",
-    top: "0",
-    left: "-200vw",
-    width: "calc((71vw - 32px) / 2)",
-    height: "80svh",
-    visibility: "hidden",
-    pointerEvents: "none",
-  });
-
-  const copy = document.createElement("div");
-  copy.className = `collector-copy collector-copy-${side}`;
-  copy.innerHTML = html;
-  page.append(copy);
-  document.body.append(page);
-  const lines = visualHighlightedLines(copy);
-  page.remove();
-  return lines;
-}
-
-function captureCurrentSpreadRepresentativeLines({ persist = true } = {}) {
-  const spread = collectorSpreads[currentSpreadIndex];
-  if (!spread || collectView.hidden) return false;
-
-  let changed = false;
-  [leftCollectorPage, rightCollectorPage].forEach((page) => {
-    const side = page.classList.contains("collector-page-left")
-      ? "left"
-      : "right";
-    const savedData = spread[side];
-    if (!savedData) return;
-
-    const nextLines = visualHighlightedLines(
-      page.querySelector(".collector-copy"),
-    );
-    const previousLines = Array.isArray(savedData.representativeLines)
-      ? savedData.representativeLines
-      : [];
-    if (JSON.stringify(nextLines) === JSON.stringify(previousLines)) return;
-
-    savedData.representativeLines = nextLines;
-    changed = true;
-  });
-
-  if (changed && persist) persistCollectorSpreads();
-  return changed;
 }
 
 function getDrawerEntries() {
@@ -2024,24 +1885,11 @@ function showRandomCollectedSentence() {
   }
 
   currentMainEntry = selected;
-  const storedRepresentativeLines = Array.isArray(selected.representativeLines)
-    ? selected.representativeLines
-        .map((line) => String(line).trim())
-        .filter(Boolean)
-        .slice(0, 3)
-    : [];
-  const measuredRepresentativeLines = measureStoredVisualHighlightedLines(
+  const highlightedLines = highlightedRepresentativeLines(
     selected.highlightedHtml || selected.html,
-    selected.side,
   );
-  const highlightedLines = measuredRepresentativeLines.length
-    ? measuredRepresentativeLines
-    : storedRepresentativeLines;
-  const legacyHighlightedLines = highlightedLines.length
+  const lines = highlightedLines.length
     ? highlightedLines
-    : highlightedRepresentativeLines(selected.highlightedHtml || selected.html);
-  const lines = legacyHighlightedLines.length
-    ? legacyHighlightedLines
     : savedHtmlToText(selected.html)
         .split(/\r?\n/)
         .filter((line) => line.trim().length > 0)
@@ -2364,7 +2212,6 @@ function playHomeIntro() {
 
 function showHome({ updateHistory = true } = {}) {
   closeSentenceDetail();
-  captureCurrentSpreadRepresentativeLines();
   deactivateHighlightTool();
   showRandomCollectedSentence();
   document.body.classList.remove("drawer-open", "collect-open");
@@ -2430,7 +2277,6 @@ function showCollect({ updateHistory = true } = {}) {
       copy.scrollTop = 0;
       updateCopyFade(copy);
     });
-    captureCurrentSpreadRepresentativeLines();
   });
 
   if (updateHistory) {
@@ -3665,7 +3511,6 @@ function createSavedPageData(page, existingData = null) {
     author: page.querySelector(".collector-author input").value.trim(),
     html: pageHtml,
     highlightedHtml: copy.innerHTML,
-    representativeLines: visualHighlightedLines(copy),
     date: existingData?.date || now.toISOString(),
     dateLabel: existingData?.dateLabel || formatDate(now),
   };
@@ -3683,15 +3528,12 @@ function persistHighlightChange(copy) {
 
   const previousHighlightHtml =
     savedData.highlightedHtml || savedData.html;
-  const previousRepresentativeLines = savedData.representativeLines;
   savedData.highlightedHtml = copy.innerHTML;
-  savedData.representativeLines = visualHighlightedLines(copy);
 
   try {
     persistCollectorSpreads();
   } catch {
     savedData.highlightedHtml = previousHighlightHtml;
-    savedData.representativeLines = previousRepresentativeLines;
     copy.innerHTML = previousHighlightHtml;
   }
 }
