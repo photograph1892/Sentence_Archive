@@ -1765,30 +1765,39 @@ function highlightedRepresentativeLines(html) {
     container.querySelectorAll('[style*="background-color"]'),
   ).filter(isActiveHighlightElement);
   const seenGroups = new Set();
-  const storedLines = [];
+  const legacyBlocks = new Map();
+  const orderedSelections = [];
 
   highlights.forEach((element) => {
     const groupId = element.dataset.highlightGroup;
     const encodedLines = element.dataset.highlightLines;
-    if (!groupId || !encodedLines || seenGroups.has(groupId)) return;
-    seenGroups.add(groupId);
-    try {
-      const lines = JSON.parse(encodedLines);
-      if (Array.isArray(lines)) storedLines.push(...lines);
-    } catch {
-      // 이전 저장 형식은 아래 호환 경로에서 처리합니다.
+    if (groupId && encodedLines) {
+      if (seenGroups.has(groupId)) return;
+      seenGroups.add(groupId);
+      try {
+        const lines = JSON.parse(encodedLines);
+        if (Array.isArray(lines)) orderedSelections.push({ lines });
+      } catch {
+        // 손상된 메타데이터는 기존 저장 형식으로 처리합니다.
+      }
+      return;
     }
+
+    const block = element.closest("div, p, li") || element;
+    let legacyLine = legacyBlocks.get(block);
+    if (!legacyLine) {
+      legacyLine = { fragments: [] };
+      legacyBlocks.set(block, legacyLine);
+      orderedSelections.push(legacyLine);
+    }
+    legacyLine.fragments.push(element.textContent);
   });
 
-  if (storedLines.length) {
-    return storedLines
-      .map((line) => String(line).trim())
-      .filter(Boolean)
-      .slice(0, 3);
-  }
-
-  return highlights
-    .map((element) => element.textContent.trim())
+  return orderedSelections
+    .flatMap((selection) =>
+      selection.lines || [selection.fragments.join("")],
+    )
+    .map((line) => String(line).trim())
     .filter(Boolean)
     .slice(0, 3);
 }
@@ -2961,7 +2970,61 @@ document.addEventListener("dragstart", (event) => {
   }
 });
 
+function insertPlainTextAtCaret(copy, text) {
+  const selection = window.getSelection();
+  let range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+
+  if (!range || !copy.contains(range.commonAncestorContainer)) {
+    range = document.createRange();
+    range.selectNodeContents(copy);
+    range.collapse(false);
+  }
+
+  range.deleteContents();
+  const fragment = document.createDocumentFragment();
+  const normalizedText = text.replace(/\r\n?/g, "\n");
+  normalizedText.split("\n").forEach((line, index) => {
+    if (index > 0) fragment.append(document.createElement("br"));
+    if (line) fragment.append(document.createTextNode(line));
+  });
+
+  const lastNode = fragment.lastChild;
+  range.insertNode(fragment);
+  if (lastNode) {
+    range.setStartAfter(lastNode);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
+function removePastedAlignment(copy) {
+  copy.querySelectorAll("[align], [dir], [style]").forEach((element) => {
+    element.removeAttribute("align");
+    element.removeAttribute("dir");
+    if (element.hasAttribute("style")) {
+      element.style.removeProperty("text-align");
+      element.style.removeProperty("direction");
+      if (!element.getAttribute("style")?.trim()) {
+        element.removeAttribute("style");
+      }
+    }
+  });
+}
+
 document.querySelectorAll(".collector-copy").forEach((copy) => {
+  copy.addEventListener("paste", (event) => {
+    if (isHighlightToolActive) return;
+    const plainText = event.clipboardData?.getData("text/plain");
+    if (plainText === undefined) return;
+
+    event.preventDefault();
+    beginPageContentEditing(copy.closest(".collector-page"), true);
+    insertPlainTextAtCaret(copy, plainText);
+    removePastedAlignment(copy);
+    copy.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
   copy.addEventListener("beforeinput", (event) => {
     if (isHighlightToolActive) return;
     beginPageContentEditing(copy.closest(".collector-page"), true);
