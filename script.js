@@ -1770,6 +1770,73 @@ function highlightedRepresentativeLines(html) {
     .slice(0, 3);
 }
 
+function measuredHighlightedRows(html, side = "left") {
+  if (!html) return [];
+
+  const page = document.createElement("div");
+  page.className = `collector-page collector-page-${side}`;
+  page.setAttribute("aria-hidden", "true");
+  Object.assign(page.style, {
+    position: "fixed",
+    top: "0",
+    left: "-200vw",
+    width: "calc((71vw - 32px) / 2)",
+    height: "auto",
+    minHeight: "0",
+    padding: "0",
+    overflow: "visible",
+    border: "0",
+    visibility: "hidden",
+    pointerEvents: "none",
+  });
+
+  const copy = document.createElement("div");
+  copy.className = `collector-copy collector-copy-${side}`;
+  copy.innerHTML = html;
+  Object.assign(copy.style, {
+    position: "static",
+    width: "75%",
+    height: "auto",
+    maxHeight: "none",
+    padding: "0",
+    overflow: "visible",
+  });
+  page.append(copy);
+  document.body.append(page);
+
+  const rows = [];
+  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+  let textNode = walker.nextNode();
+  while (textNode) {
+    if (textNode.data && closestActiveHighlight(textNode)) {
+      for (let offset = 0; offset < textNode.data.length; offset += 1) {
+        const range = document.createRange();
+        range.setStart(textNode, offset);
+        range.setEnd(textNode, offset + 1);
+        const rect = Array.from(range.getClientRects()).find(
+          (candidate) => candidate.width || candidate.height,
+        );
+        if (!rect) continue;
+
+        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
+        if (!row) {
+          row = { top: rect.top, text: "" };
+          rows.push(row);
+        }
+        row.text += textNode.data[offset];
+      }
+    }
+    textNode = walker.nextNode();
+  }
+
+  page.remove();
+  return rows
+    .sort((a, b) => a.top - b.top)
+    .map((row) => row.text.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 function getDrawerEntries() {
   return collectorSpreads.flatMap((spread, spreadIndex) =>
     ["left", "right"].flatMap((side) => {
@@ -1885,9 +1952,11 @@ function showRandomCollectedSentence() {
   }
 
   currentMainEntry = selected;
-  const highlightedLines = highlightedRepresentativeLines(
-    selected.highlightedHtml || selected.html,
-  );
+  const highlightedHtml = selected.highlightedHtml || selected.html;
+  const measuredLines = measuredHighlightedRows(highlightedHtml, selected.side);
+  const highlightedLines = measuredLines.length
+    ? measuredLines
+    : highlightedRepresentativeLines(highlightedHtml);
   const lines = highlightedLines.length
     ? highlightedLines
     : savedHtmlToText(selected.html)
