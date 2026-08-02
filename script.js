@@ -1761,78 +1761,34 @@ function highlightedRepresentativeLines(html) {
 
   const container = document.createElement("div");
   container.innerHTML = html;
-  return Array.from(
+  const highlights = Array.from(
     container.querySelectorAll('[style*="background-color"]'),
-  )
-    .filter(isActiveHighlightElement)
-    .map((element) => element.textContent.trim())
-    .filter(Boolean)
-    .slice(0, 3);
-}
+  ).filter(isActiveHighlightElement);
+  const seenGroups = new Set();
+  const storedLines = [];
 
-function measuredHighlightedRows(html, side = "left") {
-  if (!html) return [];
-
-  const page = document.createElement("div");
-  page.className = `collector-page collector-page-${side}`;
-  page.setAttribute("aria-hidden", "true");
-  Object.assign(page.style, {
-    position: "fixed",
-    top: "0",
-    left: "-200vw",
-    width: "calc((71vw - 32px) / 2)",
-    height: "auto",
-    minHeight: "0",
-    padding: "0",
-    overflow: "visible",
-    border: "0",
-    visibility: "hidden",
-    pointerEvents: "none",
-  });
-
-  const copy = document.createElement("div");
-  copy.className = `collector-copy collector-copy-${side}`;
-  copy.innerHTML = html;
-  Object.assign(copy.style, {
-    position: "static",
-    width: "75%",
-    height: "auto",
-    maxHeight: "none",
-    padding: "0",
-    overflow: "visible",
-  });
-  page.append(copy);
-  document.body.append(page);
-
-  const rows = [];
-  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-  let textNode = walker.nextNode();
-  while (textNode) {
-    if (textNode.data && closestActiveHighlight(textNode)) {
-      for (let offset = 0; offset < textNode.data.length; offset += 1) {
-        const range = document.createRange();
-        range.setStart(textNode, offset);
-        range.setEnd(textNode, offset + 1);
-        const rect = Array.from(range.getClientRects()).find(
-          (candidate) => candidate.width || candidate.height,
-        );
-        if (!rect) continue;
-
-        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
-        if (!row) {
-          row = { top: rect.top, text: "" };
-          rows.push(row);
-        }
-        row.text += textNode.data[offset];
-      }
+  highlights.forEach((element) => {
+    const groupId = element.dataset.highlightGroup;
+    const encodedLines = element.dataset.highlightLines;
+    if (!groupId || !encodedLines || seenGroups.has(groupId)) return;
+    seenGroups.add(groupId);
+    try {
+      const lines = JSON.parse(encodedLines);
+      if (Array.isArray(lines)) storedLines.push(...lines);
+    } catch {
+      // 이전 저장 형식은 아래 호환 경로에서 처리합니다.
     }
-    textNode = walker.nextNode();
+  });
+
+  if (storedLines.length) {
+    return storedLines
+      .map((line) => String(line).trim())
+      .filter(Boolean)
+      .slice(0, 3);
   }
 
-  page.remove();
-  return rows
-    .sort((a, b) => a.top - b.top)
-    .map((row) => row.text.trim())
+  return highlights
+    .map((element) => element.textContent.trim())
     .filter(Boolean)
     .slice(0, 3);
 }
@@ -1953,10 +1909,7 @@ function showRandomCollectedSentence() {
 
   currentMainEntry = selected;
   const highlightedHtml = selected.highlightedHtml || selected.html;
-  const measuredLines = measuredHighlightedRows(highlightedHtml, selected.side);
-  const highlightedLines = measuredLines.length
-    ? measuredLines
-    : highlightedRepresentativeLines(highlightedHtml);
+  const highlightedLines = highlightedRepresentativeLines(highlightedHtml);
   const lines = highlightedLines.length
     ? highlightedLines
     : savedHtmlToText(selected.html)
@@ -2689,18 +2642,19 @@ function closestActiveHighlight(node) {
   return null;
 }
 
-function effectiveHighlightColor(node, copy) {
+function highlightMetadata(node, copy) {
   let element = nodeElement(node);
-
   while (element && element !== copy) {
-    if (element.style?.backgroundColor) {
-      return isActiveHighlightElement(element)
-        ? element.style.backgroundColor
-        : null;
+    if (isActiveHighlightElement(element)) {
+      return {
+        color: element.style.backgroundColor,
+        groupId: element.dataset.highlightGroup || "",
+        lines: element.dataset.highlightLines || "",
+      };
     }
+    if (element.style?.backgroundColor) return null;
     element = element.parentElement;
   }
-
   return null;
 }
 
@@ -2718,8 +2672,8 @@ function normalizeHighlightMarkup(copy) {
   let textNode = walker.nextNode();
 
   while (textNode) {
-    const color = effectiveHighlightColor(textNode, copy);
-    if (color) highlightedTextNodes.push({ node: textNode, color });
+    const metadata = highlightMetadata(textNode, copy);
+    if (metadata) highlightedTextNodes.push({ node: textNode, ...metadata });
     textNode = walker.nextNode();
   }
 
@@ -2727,11 +2681,13 @@ function normalizeHighlightMarkup(copy) {
     element.replaceWith(...element.childNodes);
   });
 
-  highlightedTextNodes.forEach(({ node, color }) => {
+  highlightedTextNodes.forEach(({ node, color, groupId, lines }) => {
     if (!node.isConnected || !node.data.length) return;
     const highlight = document.createElement("span");
     highlight.className = "text-highlight-segment";
     highlight.style.backgroundColor = color;
+    if (groupId) highlight.dataset.highlightGroup = groupId;
+    if (lines) highlight.dataset.highlightLines = lines;
     node.parentNode.insertBefore(highlight, node);
     highlight.appendChild(node);
   });
@@ -2789,7 +2745,7 @@ function countHighlightLinesForPage(page, pendingRange = null) {
   return lineTops.length;
 }
 
-function paintRangeBackground(copy, range, color) {
+function paintRangeBackground(copy, range, color, metadata = null) {
   const walker = document.createTreeWalker(
     copy,
     NodeFilter.SHOW_TEXT,
@@ -2820,6 +2776,12 @@ function paintRangeBackground(copy, range, color) {
     const highlight = document.createElement("span");
     highlight.className = "text-highlight-segment";
     highlight.style.backgroundColor = color;
+    if (metadata?.groupId) {
+      highlight.dataset.highlightGroup = metadata.groupId;
+    }
+    if (metadata?.lines?.length) {
+      highlight.dataset.highlightLines = JSON.stringify(metadata.lines);
+    }
     selectedNode.parentNode.insertBefore(highlight, selectedNode);
     highlight.appendChild(selectedNode);
   });
@@ -2827,6 +2789,48 @@ function paintRangeBackground(copy, range, color) {
   copy.normalize();
   normalizeHighlightMarkup(copy);
   return selectedTextNodes.length > 0;
+}
+
+function highlightedRowsInRange(range) {
+  const rows = [];
+  const root = range.commonAncestorContainer;
+  const walker = document.createTreeWalker(
+    root.nodeType === Node.TEXT_NODE ? root.parentElement : root,
+    NodeFilter.SHOW_TEXT,
+  );
+  let textNode = walker.nextNode();
+
+  while (textNode) {
+    if (textNode.data && range.intersectsNode(textNode)) {
+      const start = textNode === range.startContainer ? range.startOffset : 0;
+      const end = textNode === range.endContainer
+        ? range.endOffset
+        : textNode.data.length;
+
+      for (let offset = start; offset < end; offset += 1) {
+        const characterRange = document.createRange();
+        characterRange.setStart(textNode, offset);
+        characterRange.setEnd(textNode, offset + 1);
+        const rect = Array.from(characterRange.getClientRects()).find(
+          (candidate) => candidate.width || candidate.height,
+        );
+        if (!rect) continue;
+
+        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
+        if (!row) {
+          row = { top: rect.top, text: "" };
+          rows.push(row);
+        }
+        row.text += textNode.data[offset];
+      }
+    }
+    textNode = walker.nextNode();
+  }
+
+  return rows
+    .sort((a, b) => a.top - b.top)
+    .map((row) => row.text.trim())
+    .filter(Boolean);
 }
 
 function caretPointRange(copy, clientX, clientY) {
@@ -3050,6 +3054,12 @@ document.addEventListener("pointerup", () => {
       }
 
       const normalizedRange = range.cloneRange();
+      const highlightMetadataForSelection = removeHighlightOnDrag
+        ? null
+        : {
+            groupId: createSentenceId(),
+            lines: highlightedRowsInRange(normalizedRange),
+          };
 
       const changed = paintRangeBackground(
         copy,
@@ -3057,6 +3067,7 @@ document.addEventListener("pointerup", () => {
         removeHighlightOnDrag
           ? "transparent"
           : selectedHighlightColor,
+        highlightMetadataForSelection,
       );
 
       if (changed) {
@@ -3419,10 +3430,14 @@ function highlightRecordsFromHtml(html) {
     const length = textNode.data.length;
     let element = textNode.parentElement;
     let color = null;
+    let groupId = "";
+    let lines = "";
 
     while (element && element !== container) {
       if (isActiveHighlightElement(element)) {
         color = element.style.backgroundColor;
+        groupId = element.dataset.highlightGroup || "";
+        lines = element.dataset.highlightLines || "";
         break;
       }
       element = element.parentElement;
@@ -3430,7 +3445,12 @@ function highlightRecordsFromHtml(html) {
 
     if (color && length) {
       const previous = records.at(-1);
-      if (previous?.end === offset && previous.color === color) {
+      if (
+        previous?.end === offset &&
+        previous.color === color &&
+        previous.groupId === groupId &&
+        previous.lines === lines
+      ) {
         previous.end += length;
         previous.text += textNode.data;
       } else {
@@ -3439,6 +3459,8 @@ function highlightRecordsFromHtml(html) {
           end: offset + length,
           text: textNode.data,
           color,
+          groupId,
+          lines,
         });
       }
     }
@@ -3503,7 +3525,19 @@ function reapplySavedHighlights(copy, records) {
 
   placements.forEach((record) => {
     const range = textRangeFromOffsets(copy, record.start, record.end);
-    if (range) paintRangeBackground(copy, range, record.color);
+    if (range) {
+      let lines = [];
+      try {
+        const parsedLines = JSON.parse(record.lines || "[]");
+        if (Array.isArray(parsedLines)) lines = parsedLines;
+      } catch {
+        lines = [];
+      }
+      paintRangeBackground(copy, range, record.color, {
+        groupId: record.groupId,
+        lines,
+      });
+    }
   });
 }
 
