@@ -1961,10 +1961,10 @@ body:not(.drawer-open):not(.collect-open) .date-dot.hover-glyph:hover {
 
 .sentence-detail::after {
   bottom: 2px;
-  height: 126px;
+  height: 158px;
   background: linear-gradient(
     to top,
-    var(--paper) 42%,
+    var(--paper) 48%,
     rgb(var(--paper-rgb) / 0%) 100%
   );
 }
@@ -1993,7 +1993,7 @@ body:not(.drawer-open):not(.collect-open) .date-dot.hover-glyph:hover {
   flex-direction: column;
   margin-top: -1.5em;
   padding-top: 1.5em;
-  padding-bottom: 112px;
+  padding-bottom: 136px;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: none;
