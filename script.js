@@ -2030,12 +2030,13 @@ function showRandomCollectedSentence() {
         .filter(Boolean)
         .slice(0, 3)
     : [];
-  const highlightedLines = storedRepresentativeLines.length
-    ? storedRepresentativeLines
-    : measureStoredVisualHighlightedLines(
-        selected.highlightedHtml || selected.html,
-        selected.side,
-      );
+  const measuredRepresentativeLines = measureStoredVisualHighlightedLines(
+    selected.highlightedHtml || selected.html,
+    selected.side,
+  );
+  const highlightedLines = measuredRepresentativeLines.length
+    ? measuredRepresentativeLines
+    : storedRepresentativeLines;
   const legacyHighlightedLines = highlightedLines.length
     ? highlightedLines
     : highlightedRepresentativeLines(selected.highlightedHtml || selected.html);
