@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="수집한 문장 중 한 문장을 매일 꺼내 보는 문장 달력"
+    />
+    <title>문장달력소</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&family=Raleway:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("sentence-calendar-theme-v1") || "light";
+      } catch {
+        document.documentElement.dataset.theme = "light";
+      }
+
+      if (location.hash === "#drawer" || location.hash === "#collect") {
+        document.documentElement.dataset.initialRoute =
+          location.hash.slice(1);
+      }
+    </script>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./script.js" defer></script>
+  </head>
+  <body>
+    <main class="calendar-page">
+      <header class="topbar" aria-label="주요 메뉴">
+        <div class="theme-actions" aria-label="화면 색상 모드">
+          <button
+            class="theme-button"
+            type="button"
+            data-theme-value="light"
+            aria-label="라이트 모드"
+            title="라이트 모드"
+          >
+            <span aria-hidden="true">○</span>
+          </button>
+          <button
+            class="theme-button"
+            type="button"
+            data-theme-value="dark"
+            aria-label="다크 모드"
+            title="다크 모드"
+          >
+            <span aria-hidden="true">●</span>
+          </button>
+        </div>
+
+        <a class="brand-art" href="./" aria-label="문장달력소 홈">
+          <img src="./assets/logo-line.svg" alt="" />
+        </a>
+
+        <nav class="nav-actions">
+          <a href="#drawer">서랍</a>
+          <a href="#collect">수집</a>
+        </nav>
+      </header>
+
+      <div class="main-characters" aria-label="문장달력소 캐릭터">
+        <svg
+          class="highlight-character character-pink"
+          viewBox="0 35 95 95"
+          focusable="false"
+        >
+          <circle class="character-body" cx="47.02" cy="82.84" r="46.02" />
+          <g class="character-face">
+            <ellipse cx="36.17" cy="80.14" rx="8.39" ry="17.07" />
+            <ellipse cx="57.87" cy="80.14" rx="8.39" ry="17.07" />
+            <circle cx="47.02" cy="107.27" r="3.27" />
+            <circle class="character-eye-light" cx="36.17" cy="67.49" r="2.86" />
+            <circle class="character-eye-light" cx="57.87" cy="67.49" r="2.86" />
+          </g>
+        </svg>
+
+        <svg
+          class="highlight-character character-orange"
+          viewBox="104 0 79 130"
+          focusable="false"
+        >
+          <path
+            class="character-body"
+            d="M170.13,50.71c3.98-5.53,6.3-12.34,6.22-19.7-.19-17.54-15.98-30.01-33.14-30.01-18.91,0-33.14,11.65-33.14,30.38,0,7.26,2.33,13.97,6.29,19.43,3.72,5.13,3.43,12.07-.48,17.05-6.6,8.41-9.21,18.91-9.21,27.85,0,18.3,15.57,33.14,36.55,33.14s36.55-14.84,36.55-33.14c0-8.94-2.62-19.44-9.21-27.85-3.94-5.02-4.14-11.97-.41-17.16Z"
+          />
+          <g class="character-face">
+            <ellipse cx="135.13" cy="30.15" rx="6.25" ry="12.16" />
+            <ellipse cx="151.29" cy="30.15" rx="6.25" ry="12.16" />
+            <circle class="character-eye-light" cx="135.13" cy="21.77" r="2.49" />
+            <circle class="character-eye-light" cx="151.29" cy="21.77" r="2.49" />
+            <circle cx="143.21" cy="52.27" r="3.27" />
+          </g>
+        </svg>
+
+        <svg
+          class="highlight-character character-yellow"
+          viewBox="193 39 88 88"
+          focusable="false"
+        >
+          <rect
+            class="character-body"
+            x="195.27"
+            y="41.01"
+            width="83.65"
+            height="83.65"
+            rx="10"
+            ry="10"
+          />
+          <g class="character-face">
+            <ellipse cx="226.25" cy="80.14" rx="8.39" ry="17.07" />
+            <ellipse cx="247.95" cy="80.14" rx="8.39" ry="17.07" />
+            <circle cx="237.1" cy="107.27" r="3.27" />
+            <circle class="character-eye-light" cx="226.25" cy="67.49" r="2.86" />
+            <circle class="character-eye-light" cx="247.95" cy="67.49" r="2.86" />
+          </g>
+        </svg>
+
+        <svg
+          class="highlight-character character-green"
+          viewBox="291 34 104 92"
+          focusable="false"
+        >
+          <path
+            class="character-body"
+            d="M337.95,38.81l-44.37,76.85c-2.31,4,.58,9,5.2,9h88.74c4.62,0,7.51-5,5.2-9l-44.37-76.85c-2.31-4-8.08-4-10.39,0Z"
+          />
+          <g class="character-face">
+            <ellipse cx="333.67" cy="85.53" rx="7.33" ry="13.68" />
+            <ellipse cx="352.61" cy="85.53" rx="7.33" ry="13.68" />
+            <circle cx="343.14" cy="109.27" r="3.27" />
+            <circle class="character-eye-light" cx="333.67" cy="76.01" r="2.86" />
+            <circle class="character-eye-light" cx="352.61" cy="76.01" r="2.86" />
+          </g>
+        </svg>
+
+        <svg
+          class="highlight-character character-blue"
+          viewBox="389 8 79 116"
+          focusable="false"
+        >
+          <path
+            class="character-body"
+            d="M423.44,121.33l-31.17-46.25c-2.7-4.01-2.7-10.52,0-14.53l31.17-46.25c2.7-4.01,7.09-4.01,9.79,0l31.17,46.25c2.7,4.01,2.7,10.52,0,14.53l-31.17,46.25c-2.7,4.01-7.09,4.01-9.79,0Z"
+          />
+          <g class="character-face">
+            <ellipse cx="418.87" cy="65.18" rx="7.33" ry="13.68" />
+            <ellipse cx="437.81" cy="65.18" rx="7.33" ry="13.68" />
+            <circle cx="428.34" cy="88.92" r="3.27" />
+            <circle class="character-eye-light" cx="418.87" cy="55.69" r="2.86" />
+            <circle class="character-eye-light" cx="437.81" cy="55.69" r="2.86" />
+          </g>
+        </svg>
+      </div>
+
+      <section class="date-area" aria-label="오늘 날짜">
+        <time id="current-date"></time>
+      </section>
+
+      <section class="calendar-body" aria-label="오늘의 문장">
+        <svg
+          class="main-oval"
+          viewBox="0 0 1917.9 793.58"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            class="oval-border"
+            d="M1916.9,792.58C1916.9,355.4,1559.51,1,958.95,1S1,355.4,1,792.58h1915.9Z"
+          />
+          <path
+            class="oval-fill"
+            d="M1879.11,792.58c0-419.93-343.29-760.35-920.16-760.35S38.79,372.65,38.79,792.58h1840.31Z"
+          />
+        </svg>
+
+        <div class="calendar-content">
+          <p id="main-author" class="author">문장달력소</p>
+
+          <blockquote id="daily-sentence"></blockquote>
+          <button id="main-more" class="main-more" type="button">
+            더보기
+          </button>
+
+          <aside class="day-clock" aria-label="오늘의 요일과 현재 시간">
+            <svg
+              class="day-clock-shape"
+              viewBox="0 0 590.28 329.87"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M589.28,328.87C589.28,147.79,479.54,1,295.14,1S1,147.79,1,328.87h588.28Z"
+              />
+            </svg>
+            <strong id="weekday">Sat</strong>
+            <span>now <time id="current-time"></time></span>
+          </aside>
+        </div>
+      </section>
+
+      <section
+        id="drawer"
+        class="drawer-view"
+        aria-label="수집한 문장 서랍"
+        hidden
+      >
+        <div id="drawer-grid" class="drawer-grid"></div>
+      </section>
+
+      <dialog
+        id="sentence-detail"
+        class="sentence-detail"
+        aria-labelledby="detail-title"
+      >
+        <button class="detail-close" type="button" aria-label="상세 팝업 닫기">
+          ×
+        </button>
+        <h2 id="detail-title" class="visually-hidden">수집한 문장 상세</h2>
+        <div class="detail-scroll">
+        <div class="detail-sentence">
+          <div id="detail-sentence"></div>
+        </div>
+        <time id="detail-date" class="detail-date"></time>
+        <button class="detail-action" type="button">수집하기</button>
+        </div>
+        <button
+          class="detail-to-top"
+          type="button"
+          aria-label="상세 문장 맨 위로 이동"
+        >
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M7 14 16 5l9 9M16 5v22" />
+          </svg>
+        </button>
+      </dialog>
+
+      <dialog
+        id="character-dialog"
+        class="character-dialog"
+        aria-labelledby="character-dialog-name"
+      >
+        <button
+          class="character-dialog-close"
+          type="button"
+          tabindex="-1"
+          aria-label="캐릭터 메시지 닫기"
+        >
+          ×
+        </button>
+        <p id="character-dialog-name" class="character-dialog-name"></p>
+        <p id="character-dialog-message" class="character-dialog-message"></p>
+      </dialog>
+
+      <section
+        id="collect"
+        class="collect-view"
+        aria-label="문장 수집"
+        hidden
+      >
+        <button
+          class="spread-nav spread-nav-prev"
+          type="button"
+          aria-label="이전 페이지"
+        >
+          <svg
+            class="spread-nav-icon"
+            viewBox="0 0 18 30"
+            aria-hidden="true"
+          >
+            <path d="M16 2 3 15l13 13" />
+          </svg>
+        </button>
+        <button
+          class="highlight-pencil"
+          type="button"
+          aria-label="하이라이트 색상 열기"
+          aria-controls="highlight-palette"
+          aria-expanded="false"
+          title="하이라이트 색상"
+        >
+          <svg viewBox="0 0 60.42 725.73" aria-hidden="true">
+            <path
+              class="pencil-side"
+              d="M.97,81.34h58.5v632.48c0,6.03-4.9,10.92-10.92,10.92H11.9c-6.03,0-10.92-4.9-10.92-10.92V81.34h0Z"
+            />
+            <path
+              class="pencil-center"
+              d="M19.62,82.84h21.2v639.9h-21.2Z"
+            />
+            <path
+              class="pencil-wood"
+              d="M1.41,80.34L28.27,2.38c.35-1.02,1.23-1.38,1.94-1.38s1.59.36,1.94,1.38l26.86,77.95H1.41Z"
+            />
+            <path
+              class="pencil-lead"
+              d="M21.51,22.01L28.27,2.38c.35-1.02,1.23-1.38,1.94-1.38s1.59.36,1.94,1.38l6.76,19.62h-17.4Z"
+            />
+          </svg>
+        </button>
+        <div class="collector-book">
+          <p
+            class="highlight-mode-hint highlight-escape-hint"
+            aria-live="polite"
+          >
+            esc 키를 눌러 하이라이트 모드를 취소합니다.
+          </p>
+          <p class="highlight-mode-hint" aria-live="polite">
+            달력에 표시될 대표 문장을 최대 세 줄 선택해주세요.
+          </p>
+          <article class="collector-page collector-page-left">
+            <label class="collector-author">
+              <span>저자명 :</span>
+              <input
+                type="text"
+                placeholder="문장달력소"
+                aria-label="왼쪽 페이지 저자명"
+                autocomplete="off"
+              />
+            </label>
+            <div
+              class="collector-copy collector-copy-left"
+              contenteditable="true"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="왼쪽 페이지 문장"
+              data-placeholder="여러분의 애정 가는 문장들을&#10;이곳에 예쁘게 작성해주세요.&#10;줄을 바꿔 달력에 표시할&#10;문장을 작성해보세요.&#10;본인의 글을 작성해도 무방!&#10;작성자 또는 지은이를&#10;꼭 남겨주세요.&#10;날마다 문장을 기록하세요."
+            ></div>
+            <time class="collector-date collector-date-left">2026. 07. 11.</time>
+            <button
+              class="page-save page-save-left"
+              type="button"
+              disabled
+            >
+              저장
+            </button>
+            <button
+              class="page-delete page-delete-left"
+              type="button"
+              data-page="left"
+              aria-label="왼쪽 페이지 내용 삭제"
+            >
+              <svg viewBox="0 0 38.83 53.61" aria-hidden="true">
+                <path
+                  class="trash-body"
+                  transform="translate(0 11.19)"
+                  d="M30.27,41.42H8.56c-.67,0-1.24-.46-1.33-1.07L2.79,9.83h33.25l-4.44,30.52c-.09.61-.66,1.07-1.33,1.07Z"
+                />
+                <g transform="translate(0 11.19)">
+                  <path
+                    class="trash-lid"
+                    d="M3.09,1h32.64c.63,0,1.17.64,1.31,1.53l.75,4.9c.19,1.23-.45,2.4-1.31,2.4H2.34c-.86,0-1.5-1.17-1.31-2.4l.75-4.9c.14-.9.68-1.53,1.31-1.53Z"
+                  />
+                </g>
+              </svg>
+            </button>
+          </article>
+
+          <img
+            class="binder-rings binder-rings-back"
+            src="./assets/binder-back.svg"
+            alt=""
+            aria-hidden="true"
+          />
+          <div class="binder-spine" aria-hidden="true"></div>
+          <img
+            class="binder-rings binder-rings-front"
+            src="./assets/binder-front.svg"
+            alt=""
+            aria-hidden="true"
+          />
+
+          <article
+            class="collector-page collector-page-right is-locked"
+            aria-disabled="true"
+          >
+            <label class="collector-author">
+              <span>저자명 :</span>
+              <input
+                type="text"
+                placeholder="문장달력소"
+                aria-label="오른쪽 페이지 저자명"
+                autocomplete="off"
+                disabled
+              />
+            </label>
+            <div
+              class="collector-copy collector-copy-right"
+              contenteditable="false"
+              role="textbox"
+              aria-multiline="true"
+              aria-label="오른쪽 페이지 문장"
+              data-placeholder="여러분의 애정 가는 문장들을&#10;이곳에 예쁘게 작성해주세요.&#10;줄을 바꿔 달력에 표시할&#10;문장을 작성해보세요.&#10;본인의 글을 작성해도 무방!&#10;작성자 또는 지은이를&#10;꼭 남겨주세요.&#10;날마다 문장을 기록하세요."
+            ></div>
+            <time class="collector-date collector-date-right">2026. 07. 12.</time>
+            <button
+              class="page-save page-save-right"
+              type="button"
+              disabled
+            >
+              저장
+            </button>
+            <button
+              class="page-delete page-delete-right"
+              type="button"
+              data-page="right"
+              aria-label="오른쪽 페이지 내용 삭제"
+              disabled
+            >
+              <svg viewBox="0 0 38.83 53.61" aria-hidden="true">
+                <path
+                  class="trash-body"
+                  transform="translate(0 11.19)"
+                  d="M30.27,41.42H8.56c-.67,0-1.24-.46-1.33-1.07L2.79,9.83h33.25l-4.44,30.52c-.09.61-.66,1.07-1.33,1.07Z"
+                />
+                <g transform="translate(0 11.19)">
+                  <path
+                    class="trash-lid"
+                    d="M3.09,1h32.64c.63,0,1.17.64,1.31,1.53l.75,4.9c.19,1.23-.45,2.4-1.31,2.4H2.34c-.86,0-1.5-1.17-1.31-2.4l.75-4.9c.14-.9.68-1.53,1.31-1.53Z"
+                  />
+                </g>
+              </svg>
+            </button>
+          </article>
+          <p class="spread-position" aria-live="polite">1/1</p>
+        </div>
+        <div
+          id="highlight-palette"
+          class="highlight-palette"
+          aria-label="하이라이트 색상"
+        >
+          <button
+            class="highlight-swatch"
+            type="button"
+            data-color="rgb(255, 175, 225)"
+            data-dark-color="rgb(255, 150, 215)"
+            aria-label="분홍색"
+            aria-pressed="false"
+          ></button>
+          <button
+            class="highlight-swatch"
+            type="button"
+            data-color="rgb(255, 190, 100)"
+            data-dark-color="rgb(255, 165, 75)"
+            aria-label="연주황색"
+            aria-pressed="false"
+          ></button>
+          <button
+            class="highlight-swatch"
+            type="button"
+            data-color="rgb(255, 230, 0)"
+            data-dark-color="rgb(245, 210, 0)"
+            aria-label="연노란색"
+            aria-pressed="true"
+          ></button>
+          <button
+            class="highlight-swatch"
+            type="button"
+            data-color="rgb(125, 240, 125)"
+            data-dark-color="rgb(100, 220, 100)"
+            aria-label="연초록색"
+            aria-pressed="false"
+          ></button>
+          <button
+            class="highlight-swatch"
+            type="button"
+            data-color="rgb(115, 240, 255)"
+            data-dark-color="rgb(100, 215, 240)"
+            aria-label="연파란색"
+            aria-pressed="false"
+          ></button>
+        </div>
+        <button
+          class="spread-nav spread-nav-next"
+          type="button"
+          aria-label="다음 페이지"
+        >
+          <svg
+            class="spread-nav-icon"
+            viewBox="0 0 18 30"
+            aria-hidden="true"
+          >
+            <path d="m2 2 13 13L2 28" />
+          </svg>
+        </button>
+      </section>
+    </main>
+  </body>
+</html>
