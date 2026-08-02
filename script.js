@@ -1767,6 +1767,10 @@ function highlightedRepresentativeLines(html) {
   const seenGroups = new Set();
   const legacyBlocks = new Map();
   const orderedSelections = [];
+  const comparableText = (value) =>
+    String(value || "")
+      .normalize("NFC")
+      .replace(/\s+/g, "");
 
   highlights.forEach((element) => {
     const groupId = element.dataset.highlightGroup;
@@ -1774,11 +1778,34 @@ function highlightedRepresentativeLines(html) {
     if (groupId && encodedLines) {
       if (seenGroups.has(groupId)) return;
       seenGroups.add(groupId);
+      const groupElements = highlights.filter(
+        (candidate) => candidate.dataset.highlightGroup === groupId,
+      );
       try {
         const lines = JSON.parse(encodedLines);
-        if (Array.isArray(lines)) orderedSelections.push({ lines });
+        const currentHighlightedText = groupElements
+          .map((candidate) => candidate.textContent)
+          .join("");
+
+        if (
+          Array.isArray(lines) &&
+          comparableText(lines.join("")) ===
+            comparableText(currentHighlightedText)
+        ) {
+          orderedSelections.push({ lines });
+        } else {
+          orderedSelections.push({
+            lines: groupElements
+              .map((candidate) => candidate.textContent.trim())
+              .filter(Boolean),
+          });
+        }
       } catch {
-        // 손상된 메타데이터는 기존 저장 형식으로 처리합니다.
+        orderedSelections.push({
+          lines: groupElements
+            .map((candidate) => candidate.textContent.trim())
+            .filter(Boolean),
+        });
       }
       return;
     }
@@ -2800,6 +2827,37 @@ function paintRangeBackground(copy, range, color, metadata = null) {
   return selectedTextNodes.length > 0;
 }
 
+function appendTextNodeRows(
+  rows,
+  textNode,
+  start = 0,
+  end = textNode.data.length,
+) {
+  for (let offset = start; offset < end; offset += 1) {
+    const characterRange = document.createRange();
+    characterRange.setStart(textNode, offset);
+    characterRange.setEnd(textNode, offset + 1);
+    const rect = Array.from(characterRange.getClientRects()).find(
+      (candidate) => candidate.width || candidate.height,
+    );
+    if (!rect) continue;
+
+    let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
+    if (!row) {
+      row = { top: rect.top, text: "" };
+      rows.push(row);
+    }
+    row.text += textNode.data[offset];
+  }
+}
+
+function normalizedRenderedRows(rows) {
+  return rows
+    .sort((a, b) => a.top - b.top)
+    .map((row) => row.text.trim())
+    .filter(Boolean);
+}
+
 function highlightedRowsInRange(range) {
   const rows = [];
   const root = range.commonAncestorContainer;
@@ -2811,35 +2869,61 @@ function highlightedRowsInRange(range) {
 
   while (textNode) {
     if (textNode.data && range.intersectsNode(textNode)) {
-      const start = textNode === range.startContainer ? range.startOffset : 0;
-      const end = textNode === range.endContainer
-        ? range.endOffset
-        : textNode.data.length;
-
-      for (let offset = start; offset < end; offset += 1) {
-        const characterRange = document.createRange();
-        characterRange.setStart(textNode, offset);
-        characterRange.setEnd(textNode, offset + 1);
-        const rect = Array.from(characterRange.getClientRects()).find(
-          (candidate) => candidate.width || candidate.height,
-        );
-        if (!rect) continue;
-
-        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
-        if (!row) {
-          row = { top: rect.top, text: "" };
-          rows.push(row);
-        }
-        row.text += textNode.data[offset];
-      }
+      appendTextNodeRows(
+        rows,
+        textNode,
+        textNode === range.startContainer ? range.startOffset : 0,
+        textNode === range.endContainer ? range.endOffset : textNode.data.length,
+      );
     }
     textNode = walker.nextNode();
   }
 
-  return rows
-    .sort((a, b) => a.top - b.top)
-    .map((row) => row.text.trim())
-    .filter(Boolean);
+  return normalizedRenderedRows(rows);
+}
+
+function highlightedRowsForElements(elements) {
+  const rows = [];
+
+  elements.forEach((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let textNode = walker.nextNode();
+
+    while (textNode) {
+      appendTextNodeRows(rows, textNode);
+      textNode = walker.nextNode();
+    }
+  });
+
+  return normalizedRenderedRows(rows);
+}
+
+function refreshHighlightLineMetadata(copy) {
+  if (!copy.getClientRects().length) return false;
+
+  const groups = new Map();
+  Array.from(copy.querySelectorAll(".text-highlight-segment"))
+    .filter(isActiveHighlightElement)
+    .forEach((element) => {
+      const groupId = element.dataset.highlightGroup;
+      if (!groupId) return;
+      if (!groups.has(groupId)) groups.set(groupId, []);
+      groups.get(groupId).push(element);
+    });
+
+  let changed = false;
+  groups.forEach((elements) => {
+    const lines = highlightedRowsForElements(elements);
+    if (!lines.length) return;
+    const encodedLines = JSON.stringify(lines);
+    elements.forEach((element) => {
+      if (element.dataset.highlightLines !== encodedLines) {
+        element.dataset.highlightLines = encodedLines;
+        changed = true;
+      }
+    });
+  });
+  return changed;
 }
 
 function caretPointRange(copy, clientX, clientY) {
@@ -3153,6 +3237,7 @@ document.addEventListener("pointerup", () => {
       );
 
       if (changed) {
+        refreshHighlightLineMetadata(copy);
         copy.dispatchEvent(
           new CustomEvent("input", {
             bubbles: true,
