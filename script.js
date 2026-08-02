@@ -1817,6 +1817,98 @@ function highlightedRepresentativeLines(html) {
   return representativeLines.slice(0, 3);
 }
 
+function visualHighlightedLines(copy) {
+  if (!copy?.isConnected) return [];
+
+  const rows = [];
+  const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+  let textNode = walker.nextNode();
+
+  while (textNode) {
+    if (textNode.data && closestActiveHighlight(textNode)) {
+      for (let offset = 0; offset < textNode.data.length; offset += 1) {
+        const character = textNode.data[offset];
+        const range = document.createRange();
+        range.setStart(textNode, offset);
+        range.setEnd(textNode, offset + 1);
+        const rect = Array.from(range.getClientRects()).find(
+          (candidate) => candidate.width || candidate.height,
+        );
+        if (!rect) continue;
+
+        let row = rows.find((candidate) => Math.abs(candidate.top - rect.top) < 4);
+        if (!row) {
+          row = { top: rect.top, left: rect.left, text: "" };
+          rows.push(row);
+        }
+        row.left = Math.min(row.left, rect.left);
+        row.text += character;
+      }
+    }
+    textNode = walker.nextNode();
+  }
+
+  return rows
+    .sort((a, b) => a.top - b.top || a.left - b.left)
+    .map((row) => row.text.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function measureStoredVisualHighlightedLines(html, side = "left") {
+  if (!html) return [];
+
+  const page = document.createElement("div");
+  page.className = `collector-page collector-page-${side}`;
+  page.setAttribute("aria-hidden", "true");
+  Object.assign(page.style, {
+    position: "fixed",
+    top: "0",
+    left: "-200vw",
+    width: "calc((71vw - 32px) / 2)",
+    height: "80svh",
+    visibility: "hidden",
+    pointerEvents: "none",
+  });
+
+  const copy = document.createElement("div");
+  copy.className = `collector-copy collector-copy-${side}`;
+  copy.innerHTML = html;
+  page.append(copy);
+  document.body.append(page);
+  const lines = visualHighlightedLines(copy);
+  page.remove();
+  return lines;
+}
+
+function captureCurrentSpreadRepresentativeLines({ persist = true } = {}) {
+  const spread = collectorSpreads[currentSpreadIndex];
+  if (!spread || collectView.hidden) return false;
+
+  let changed = false;
+  [leftCollectorPage, rightCollectorPage].forEach((page) => {
+    const side = page.classList.contains("collector-page-left")
+      ? "left"
+      : "right";
+    const savedData = spread[side];
+    if (!savedData) return;
+
+    const nextLines = visualHighlightedLines(
+      page.querySelector(".collector-copy"),
+    );
+    const previousLines = Array.isArray(savedData.representativeLines)
+      ? savedData.representativeLines
+      : [];
+    if (JSON.stringify(nextLines) === JSON.stringify(previousLines)) return;
+
+    savedData.representativeLines = nextLines;
+    changed = true;
+  });
+
+  if (changed && persist) persistCollectorSpreads();
+  return changed;
+}
+
 function getDrawerEntries() {
   return collectorSpreads.flatMap((spread, spreadIndex) =>
     ["left", "right"].flatMap((side) => {
@@ -1932,11 +2024,23 @@ function showRandomCollectedSentence() {
   }
 
   currentMainEntry = selected;
-  const highlightedLines = highlightedRepresentativeLines(
-    selected.highlightedHtml || selected.html,
-  );
-  const lines = highlightedLines.length
+  const storedRepresentativeLines = Array.isArray(selected.representativeLines)
+    ? selected.representativeLines
+        .map((line) => String(line).trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+  const highlightedLines = storedRepresentativeLines.length
+    ? storedRepresentativeLines
+    : measureStoredVisualHighlightedLines(
+        selected.highlightedHtml || selected.html,
+        selected.side,
+      );
+  const legacyHighlightedLines = highlightedLines.length
     ? highlightedLines
+    : highlightedRepresentativeLines(selected.highlightedHtml || selected.html);
+  const lines = legacyHighlightedLines.length
+    ? legacyHighlightedLines
     : savedHtmlToText(selected.html)
         .split(/\r?\n/)
         .filter((line) => line.trim().length > 0)
@@ -2259,6 +2363,7 @@ function playHomeIntro() {
 
 function showHome({ updateHistory = true } = {}) {
   closeSentenceDetail();
+  captureCurrentSpreadRepresentativeLines();
   deactivateHighlightTool();
   showRandomCollectedSentence();
   document.body.classList.remove("drawer-open", "collect-open");
@@ -2324,6 +2429,7 @@ function showCollect({ updateHistory = true } = {}) {
       copy.scrollTop = 0;
       updateCopyFade(copy);
     });
+    captureCurrentSpreadRepresentativeLines();
   });
 
   if (updateHistory) {
@@ -3558,6 +3664,7 @@ function createSavedPageData(page, existingData = null) {
     author: page.querySelector(".collector-author input").value.trim(),
     html: pageHtml,
     highlightedHtml: copy.innerHTML,
+    representativeLines: visualHighlightedLines(copy),
     date: existingData?.date || now.toISOString(),
     dateLabel: existingData?.dateLabel || formatDate(now),
   };
@@ -3575,12 +3682,15 @@ function persistHighlightChange(copy) {
 
   const previousHighlightHtml =
     savedData.highlightedHtml || savedData.html;
+  const previousRepresentativeLines = savedData.representativeLines;
   savedData.highlightedHtml = copy.innerHTML;
+  savedData.representativeLines = visualHighlightedLines(copy);
 
   try {
     persistCollectorSpreads();
   } catch {
     savedData.highlightedHtml = previousHighlightHtml;
+    savedData.representativeLines = previousRepresentativeLines;
     copy.innerHTML = previousHighlightHtml;
   }
 }
