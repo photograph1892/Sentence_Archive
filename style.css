@@ -1436,7 +1436,7 @@ body:not(.drawer-open):not(.collect-open) .date-dot.hover-glyph:hover {
 .pencil-wood,
 .pencil-lead {
   stroke: var(--ink);
-  stroke-width: 2px;
+  stroke-width: 4px;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
